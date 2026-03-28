@@ -8,7 +8,8 @@
     "start": "node index.js",
     "dev": "nodemon index.js",
     "seed": "node utils/seeder.js --seed",
-    "test": "echo \"Error: no test specified\" && exit 1"
+    "test": "node test-api.js",
+    "test:conn": "node test-connection.js"
   },
   "keywords": [
     "ecommerce",

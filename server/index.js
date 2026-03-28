@@ -1,6 +1,7 @@
 import express from 'express';
 import cors from 'cors';
 import dotenv from 'dotenv';
+import mongoose from 'mongoose';
 import connectDB from './db/connectDB.js';
 import errorHandler, { notFound } from './middleware/errorHandler.js';
 
@@ -12,15 +13,20 @@ import categoryRoutes from './routes/categoryRoutes.js';
 // Load environment variables
 dotenv.config();
 
-// Connect to database
-connectDB();
+// Connect to database (but don't block in production/serverless)
+let dbConnected = false;
+connectDB().then(() => {
+  dbConnected = true;
+}).catch(err => {
+  console.error('Initial DB connection failed:', err.message);
+});
 
 // Initialize Express app
 const app = express();
 
-// CORS configuration
+// CORS configuration - allow all origins for deployment
 const corsOptions = {
-  origin: process.env.CLIENT_URL || 'http://localhost:5173',
+  origin: '*',
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -30,6 +36,21 @@ const corsOptions = {
 app.use(cors(corsOptions));
 app.use(express.json({ limit: '10mb' }));
 app.use(express.urlencoded({ extended: true, limit: '10mb' }));
+
+// Ensure DB connection middleware
+app.use('/api/auth', async (req, res, next) => {
+  if (mongoose.connection.readyState !== 1) {
+    try {
+      await connectDB();
+    } catch (error) {
+      return res.status(503).json({
+        success: false,
+        message: 'Database connection failed. Please try again.'
+      });
+    }
+  }
+  next();
+});
 
 // Request logging middleware (development only)
 if (process.env.NODE_ENV === 'development') {
@@ -70,26 +91,14 @@ app.use(notFound);
 // Global error handler
 app.use(errorHandler);
 
-// Start server
+// Start server (only for local development)
 const PORT = process.env.PORT || 5000;
 
-app.listen(PORT, () => {
-  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-  console.log(`API URL: http://localhost:${PORT}/api`);
-});
-
-// Handle unhandled promise rejections
-process.on('unhandledRejection', (err) => {
-  console.error('Unhandled Rejection:', err.message);
-  // Close server & exit process
-  process.exit(1);
-});
-
-// Handle uncaught exceptions
-process.on('uncaughtException', (err) => {
-  console.error('Uncaught Exception:', err.message);
-  // Close server & exit process
-  process.exit(1);
-});
+if (process.env.NODE_ENV !== 'production') {
+  app.listen(PORT, () => {
+    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+    console.log(`API URL: http://localhost:${PORT}/api`);
+  });
+}
 
 export default app;
