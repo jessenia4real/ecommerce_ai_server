@@ -24,9 +24,24 @@ connectDB().then(() => {
 // Initialize Express app
 const app = express();
 
-// CORS configuration - allow all origins for deployment
+// CORS configuration - allow Vercel frontend and localhost for dev
+const allowedOrigins = [
+  'https://client-two-beta-32.vercel.app',
+  'http://localhost:5173',
+  'http://localhost:5174',
+  'http://localhost:5175',
+  'http://localhost:3000',
+];
+
 const corsOptions = {
-  origin: '*',
+  origin: (origin, callback) => {
+    // Allow requests with no origin (mobile apps, curl, Render health checks)
+    if (!origin || allowedOrigins.includes(origin)) {
+      callback(null, true);
+    } else {
+      callback(new Error('Not allowed by CORS'));
+    }
+  },
   credentials: true,
   methods: ['GET', 'POST', 'PUT', 'PATCH', 'DELETE', 'OPTIONS'],
   allowedHeaders: ['Content-Type', 'Authorization'],
@@ -91,14 +106,12 @@ app.use(notFound);
 // Global error handler
 app.use(errorHandler);
 
-// Start server (only for local development)
+// Start server
 const PORT = process.env.PORT || 5000;
 
-if (process.env.NODE_ENV !== 'production') {
-  app.listen(PORT, () => {
-    console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
-    console.log(`API URL: http://localhost:${PORT}/api`);
-  });
-}
+app.listen(PORT, () => {
+  console.log(`Server running in ${process.env.NODE_ENV || 'development'} mode on port ${PORT}`);
+  console.log(`API URL: http://localhost:${PORT}/api`);
+});
 
 export default app;
